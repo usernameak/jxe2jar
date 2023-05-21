@@ -1,5 +1,4 @@
-"""Java bytecode"""
-# pylint: disable=C0103
+"""Java bytecode."""
 import struct
 from enum import Enum
 

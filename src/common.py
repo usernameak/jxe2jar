@@ -1,4 +1,4 @@
-"""JXE2JAR common class."""
+"""Common class."""
 import errno
 import os
 import os.path

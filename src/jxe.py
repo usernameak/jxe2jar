@@ -6,7 +6,7 @@ from io import IOBase
 from zipfile import ZipFile
 
 from bitstring import BitArray
-from Common import ReaderStream, StreamCursor, WriterStream  # noqa: F401
+from common import ReaderStream, StreamCursor, WriterStream  # noqa: F401
 
 
 class ConstType(int, Enum):
