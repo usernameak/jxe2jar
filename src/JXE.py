@@ -2,8 +2,10 @@
 # pylint: disable=W0612
 import struct
 from enum import Enum
+from io import IOBase
 from zipfile import ZipFile
 
+from bitstring import BitArray
 from Common import ReaderStream, StreamCursor, WriterStream  # noqa: F401
 
 
@@ -18,13 +20,16 @@ class ConstType(int, Enum):
 
 
 class J9ROMField:
+    """J9 Field."""
+
     def __init__(self, name, signature, access_flag):
         self.name = name
         self.signature = signature
         self.access_flag = access_flag
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Field from stream."""
         name = stream.read_string_ref()
         signature = stream.read_string_ref()
         access_flags = stream.read_u32()
@@ -41,6 +46,8 @@ class J9ROMField:
 
 
 class J9ROMCatchException:
+    """J9 Catch Exception."""
+
     def __init__(self, start, end, handler, catch_type):
         self.start = start
         self.end = end
@@ -48,7 +55,8 @@ class J9ROMCatchException:
         self.catch_type = catch_type
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Catch Exception from stream."""
         start = stream.read_u32()
         end = stream.read_u32()
         handler = stream.read_u32()
@@ -57,15 +65,20 @@ class J9ROMCatchException:
 
 
 class J9ROMThrowException:
+    """J9 Throw Exception."""
+
     def __init__(self, throw_type):
         self.throw_type = throw_type
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Throw Exception"""
         return J9ROMThrowException(stream.read_string_ref())
 
 
 class J9ROMMethod:
+    """J9 MMethod."""
+
     def __init__(
         self,
         name,
@@ -89,7 +102,8 @@ class J9ROMMethod:
         self.throw_exceptions = throw_exceptions
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Method."""
         name = stream.read_string_ref()
         signature = stream.read_string_ref()
         modifier = stream.read_u32()
@@ -162,16 +176,21 @@ class J9ROMMethod:
 
 
 class J9ROMInterface:
+    """J9 Interface."""
+
     def __init__(self, name):
         self.name = name
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """ "Returns J9 Interface from stream."""
         name = stream.read_string_ref()
         return J9ROMInterface(name)
 
 
 class J9ROMConstant:
+    """J9 Constant."""
+
     def __init__(self, cons_type, value=None, _class=None, name=None, descriptor=None):
         self.type = cons_type
         match cons_type:
@@ -185,7 +204,8 @@ class J9ROMConstant:
                 self.descriptor = descriptor
 
     @staticmethod
-    def read(stream, base):
+    def read(stream: BitArray, base):
+        """Returns J9 constant from stream."""
         pos = stream.get()
         value = stream.read_u32()
         value_type = stream.read_u32()
@@ -219,6 +239,8 @@ class J9ROMConstant:
 
 
 class J9ROMClass:
+    """J9 Class."""
+
     def __init__(
         self,
         minor,
@@ -242,9 +264,11 @@ class J9ROMClass:
         self.constant_pool = constant_pool
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Class from stream."""
         class_name = stream.read_string_ref()
         class_pointer = stream.read_relative()
+
         with StreamCursor(stream, class_pointer):
             rom_size = stream.read_u32()  # noqa: F841
             single_scalar_static_count = stream.read_u32()  # noqa: F841
@@ -253,18 +277,24 @@ class J9ROMClass:
             access_flags = stream.read_u32()
             interface_count = stream.read_u32()
             interfaces_pointer = stream.read_relative()
+
             with StreamCursor(stream, interfaces_pointer):
                 interfaces = [
                     J9ROMInterface.read(stream) for i in range(interface_count)
                 ]
+
             rom_method_count = stream.read_u32()
             rom_methods_pointer = stream.read_relative()
+
             with StreamCursor(stream, rom_methods_pointer):
                 methods = [J9ROMMethod.read(stream) for i in range(rom_method_count)]
+
             rom_field_count = stream.read_u32()
             rom_fields_pointer = stream.read_relative()
+
             with StreamCursor(stream, rom_fields_pointer):
                 fields = [J9ROMField.read(stream) for i in range(rom_field_count)]
+
             object_static_count = stream.read_u32()  # noqa: F841
             double_scalar_static_count = stream.read_u32()  # noqa: F841
             ram_constant_pool_count = stream.read_u32()  # noqa: F841
@@ -281,6 +311,7 @@ class J9ROMClass:
             minor = stream.read_u16()
             optional_flags = stream.read_u32()
             optional_info_pointer = stream.read_relative()
+
             if not optional_flags & 0x2000:
                 with StreamCursor(stream, optional_info_pointer):
                     pass
@@ -291,9 +322,11 @@ class J9ROMClass:
                     # debug_info = stream.read_sprr(optional_flags, 0x10)
                     # enclosing_method = stream.read_sprr(optional_flags, 0x40)
                     # simple_name = stream.read_sprr(optional_flags, 0x80)
+
             base = stream.get()
             constant_pool_count = rom_constant_pool_count
             constant_pool = []
+
             for i in range(constant_pool_count):
                 try:
                     constant_pool.append(J9ROMConstant.read(stream, base))
@@ -302,6 +335,7 @@ class J9ROMClass:
                     # liy double const but in some cases last element contain not valid
                     # string const, so we skip sthis case
                     pass
+
         return J9ROMClass(
             minor,
             major,
@@ -316,6 +350,8 @@ class J9ROMClass:
 
 
 class J9ROMImage:
+    """J9 Image."""
+
     def __init__(self, signature, flags_and_version, rom_size, symbol_file_id, classes):
         self.signature = signature
         self.flags_and_version = flags_and_version
@@ -324,7 +360,8 @@ class J9ROMImage:
         self.classes = classes
 
     @staticmethod
-    def read(stream):
+    def read(stream: BitArray):
+        """Returns J9 Image from stream."""
         signature = stream.read_u32()
         flags_and_version = stream.read_u32()
         rom_size = stream.read_u32()
@@ -338,19 +375,22 @@ class J9ROMImage:
         stream.set(toc_pointer)
         classes = [J9ROMClass.read(stream) for i in range(class_count)]
         stream.set(pos)
+
         return J9ROMImage(
             signature, flags_and_version, rom_size, symbol_file_id, classes
         )
 
 
 class JXE:
+    """JXE object."""
+
     def __init__(self, image):
         self.image = image
 
     @staticmethod
-    def read(stream):
+    def read(stream: IOBase):
+        """Returns JXE class from file object reading."""
         with ZipFile(stream.file_object) as fp_zipfile:
             with fp_zipfile.open("rom.classes") as rom:
                 rom_stream = ReaderStream.bytes_to_stream(rom.read())
-                image = J9ROMImage.read(rom_stream)
-                return JXE(image)
+                return JXE(J9ROMImage.read(rom_stream))
