@@ -1,8 +1,10 @@
+import errno
 import os
 import os.path
-import errno
-import StringIO
+from io import IOBase
+
 import bitstring
+
 
 class StreamCursor(object):
     def __init__(self, stream, pos):
@@ -19,14 +21,17 @@ class StreamCursor(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._stream_.set(self._old_pos_)
 
+
 class ReaderStream(object):
     def __init__(self, obj):
-        if isinstance(obj, file):
+        if isinstance(obj, IOBase):
             self._file_object_ = obj
             self._bit_stream_ = bitstring.BitStream(self._file_object_)
         elif isinstance(obj, bitstring.BitArray):
             self._bit_stream_ = bitstring.BitStream()
             self._bit_stream_._append(obj)
+        else:
+            raise Exception("Invalid ReaderStream instance type")
 
     def get(self):
         return self._bit_stream_.bytepos
@@ -35,29 +40,29 @@ class ReaderStream(object):
         self._bit_stream_.bytepos = pos
 
     def read_bytes(self, length):
-        return self._bit_stream_.read('bytes:{0}'.format(length))
+        return self._bit_stream_.read(f"bytes:{length}")
 
     def read_u8(self):
-        return self._bit_stream_.read('uintle:8')
+        return self._bit_stream_.read("uintle:8")
 
     def read_u16(self):
-        return self._bit_stream_.read('uintle:16')
+        return self._bit_stream_.read("uintle:16")
 
     def read_u32(self):
-        return self._bit_stream_.read('uintle:32')
+        return self._bit_stream_.read("uintle:32")
 
     def read_i8(self):
-        return self._bit_stream_.read('intle:8')
+        return self._bit_stream_.read("intle:8")
 
     def read_i16(self):
-        return self._bit_stream_.read('intle:16')
+        return self._bit_stream_.read("intle:16")
 
     def read_i32(self):
-        return self._bit_stream_.read('intle:32')
+        return self._bit_stream_.read("intle:32")
 
     def read_string(self):
         length = self.read_u16()
-        return self.read_bytes(length)
+        return self.read_bytes(length).decode("utf-8")
 
     def read_relative(self):
         base = self.get()
@@ -88,6 +93,7 @@ class ReaderStream(object):
     def bytes_to_stream(bytes):
         return ReaderStream(bitstring.BitArray(bytes=bytes))
 
+
 class WriterStream(object):
     def __init__(self, file_object):
         self._file_object_ = file_object
@@ -97,42 +103,26 @@ class WriterStream(object):
         self._bit_stream_.tofile(self._file_object_)
 
     def write_raw_bytes(self, data):
-        return self._bit_stream_._append(
-            bitstring.BitArray(bytes=data)
-        )
+        return self._bit_stream_._append(bitstring.BitArray(bytes=data))
 
     def write_u8(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('uintbe:8', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("uintbe:8", value))
 
     def write_u16(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('uintbe:16', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("uintbe:16", value))
 
     def write_u32(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('uintbe:32', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("uintbe:32", value))
 
     def write_i8(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('intbe:8', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("intbe:8", value))
 
     def write_i16(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('intbe:16', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("intbe:16", value))
 
     def write_i32(self, value):
-        return self._bit_stream_._append(
-            bitstring.pack('intbe:32', value)
-        )
+        return self._bit_stream_._append(bitstring.pack("intbe:32", value))
 
-def enum(**enums):
-    return type('Enum', (), enums)
 
 def create_file_path(filepath):
     if not os.path.exists(os.path.dirname(filepath)):
