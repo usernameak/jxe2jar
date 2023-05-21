@@ -7,6 +7,6 @@ Detailed info in doc/jxe2jar.pdf.
 bitstring
 
 ## Using
-python JXE2JAR.py input.jxe output.jar
+python src/jxe2jar.py input.jxe output.jar
 
 ## Thanks to @Black2Fan
