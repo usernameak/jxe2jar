@@ -1,3 +1,4 @@
+"""Constants Pool class."""
 import struct
 from enum import Enum
 

@@ -1,12 +1,11 @@
 """Converts JXE to JAR file."""
-# pylint: disable=C0103
 import io
 import sys
 import zipfile
 
-from Bytecode import transform_bytecode
-from ConstPool import CONST, ConstPool
-from JXE import JXE, ReaderStream, WriterStream
+from bytecode import transform_bytecode
+from constpool import CONST, ConstPool
+from jxe import JXE, ReaderStream, WriterStream
 
 
 def dump_romclass(
