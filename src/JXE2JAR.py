@@ -9,7 +9,9 @@ from ConstPool import CONST, ConstPool
 from JXE import JXE, ReaderStream, WriterStream
 
 
-def dump_romclass(stream, romclass):  # pylint: disable=R0914, R0915
+def dump_romclass(
+    stream, romclass
+) -> tuple[ConstPool, list]:  # pylint: disable=R0914, R0915
     """Dumps romclass."""
     stream.write_raw_bytes(b"\xca\xfe\xba\xbe")
     stream.write_u16(romclass.minor)
@@ -18,6 +20,7 @@ def dump_romclass(stream, romclass):  # pylint: disable=R0914, R0915
     class_name_id = const_pool.add(CONST.CLASS, romclass.class_name)
     superclass_name_id = const_pool.add(CONST.CLASS, romclass.superclass_name)
     interface_id_list = []
+    method_info_list = []
 
     for interface in romclass.interfaces:
         interface_id_list.append(const_pool.add(CONST.CLASS, interface.name))
@@ -36,7 +39,6 @@ def dump_romclass(stream, romclass):  # pylint: disable=R0914, R0915
         )
 
     code_attr_name_index = const_pool.add(CONST.UTF8, "Code")
-    method_info_list = []
 
     for method in romclass.methods:
         bytecode = transform_bytecode(bytearray(method.bytecode), const_pool)
@@ -126,16 +128,19 @@ def dump_romclass(stream, romclass):  # pylint: disable=R0914, R0915
 
     stream.write_u16(0)
 
+    return method_info_list, const_pool
 
-def create_class(romclass, jarfile):
+
+def create_class(romclass, jarfile) -> None:
     """Creates class"""
     class_name = romclass.class_name
     class_file = f"{class_name}.class"
     f_stream = io.BytesIO()
     stream = WriterStream(f_stream)
-    dump_romclass(stream, romclass)
+    res = dump_romclass(stream, romclass)
     stream.write()
     jarfile.writestr(class_file, f_stream.getvalue())
+    return res
 
 
 def _create_jar(jar_name, jxe):
