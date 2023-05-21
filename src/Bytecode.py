@@ -1,8 +1,12 @@
+"""Java bytecode"""
+# pylint: disable=C0103
 import struct
 from enum import Enum
 
 
 class JBOpcode(int, Enum):
+    """Opcode mapping."""
+
     JBnop = 0x00
     JBaconstnull = 0x01
     JBiconstm1 = 0x02
@@ -231,9 +235,11 @@ class JBOpcode(int, Enum):
 
 
 def transform_bytecode(bytecode, cp):
+    """Transforms bytecode"""
     i = 0
     new_cp_transform = {}
     new_bytecode = bytearray()
+
     while i < len(bytecode):
         opcode = bytecode[i]
         if opcode in (
@@ -279,7 +285,7 @@ def transform_bytecode(bytecode, cp):
                     transform = cp.get_transform(index)
                     new_index = transform["new_index"]
                 else:
-                    # TODO very dirty hack, because we incorrectly
+                    # TODO: very dirty hack, because we incorrectly
                     # parse constant pool used in 1 case
                     new_index = 0
                 tmp = struct.pack(">H", new_index + 1)
@@ -409,7 +415,7 @@ def transform_bytecode(bytecode, cp):
             new_bytecode.append(opcode)
             padding = (i + 1) % 4
             padding = padding if padding == 0 else (4 - padding)
-            for j in range(padding):
+            for _ in range(padding):
                 new_bytecode.append(0x0)
             i += padding + 1
             default = struct.unpack("<I", bytecode[i : i + 4])[0]
@@ -424,7 +430,7 @@ def transform_bytecode(bytecode, cp):
             tmp = struct.pack(">i", high)
             new_bytecode += tmp
             try:
-                for j in range(high - low + 1):
+                for _ in range(high - low + 1):
                     i += 4
                     left = struct.unpack("<I", bytecode[i : i + 4])[0]
                     tmp = struct.pack(">I", left)
@@ -436,7 +442,7 @@ def transform_bytecode(bytecode, cp):
             new_bytecode.append(opcode)
             padding = (i + 1) % 4
             padding = padding if padding == 0 else (4 - padding)
-            for j in range(padding):
+            for _ in range(padding):
                 new_bytecode.append(0x0)
             i += padding + 1
             default = struct.unpack("<I", bytecode[i : i + 4])[0]
@@ -446,7 +452,7 @@ def transform_bytecode(bytecode, cp):
             n = struct.unpack("<I", bytecode[i : i + 4])[0]
             tmp = struct.pack(">I", n)
             new_bytecode += tmp
-            for j in range(n):
+            for _ in range(n):
                 i += 4
                 left = struct.unpack("<I", bytecode[i : i + 4])[0]
                 tmp = struct.pack(">I", left)
@@ -475,7 +481,7 @@ def transform_bytecode(bytecode, cp):
             new_bytecode.append(opcode)
             i += 1
 
-    for index in new_cp_transform:
-        cp.apply_transform(index, new_cp_transform[index])
+    for index, value in new_cp_transform.items():
+        cp.apply_transform(index, value)
 
     return new_bytecode

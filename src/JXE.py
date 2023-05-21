@@ -1,4 +1,5 @@
 """JXE class."""
+# pylint: disable=W0612
 import struct
 from enum import Enum
 from zipfile import ZipFile
@@ -7,6 +8,8 @@ from Common import ReaderStream, StreamCursor, WriterStream  # noqa: F401
 
 
 class ConstType(int, Enum):
+    """Constant types"""
+
     INT = 0
     STRING = 1
     CLASS = 2
@@ -14,9 +17,8 @@ class ConstType(int, Enum):
     REF = 4
 
 
-class J9ROMField(object):
+class J9ROMField:
     def __init__(self, name, signature, access_flag):
-        super(J9ROMField, self).__init__()
         self.name = name
         self.signature = signature
         self.access_flag = access_flag
@@ -38,9 +40,8 @@ class J9ROMField(object):
         return J9ROMField(name, signature, access_flags)
 
 
-class J9ROMCatchException(object):
+class J9ROMCatchException:
     def __init__(self, start, end, handler, catch_type):
-        super(J9ROMCatchException, self).__init__()
         self.start = start
         self.end = end
         self.handler = handler
@@ -55,9 +56,8 @@ class J9ROMCatchException(object):
         return J9ROMCatchException(start, end, handler, catch_type)
 
 
-class J9ROMThrowException(object):
+class J9ROMThrowException:
     def __init__(self, throw_type):
-        super(J9ROMThrowException, self).__init__()
         self.throw_type = throw_type
 
     @staticmethod
@@ -65,7 +65,7 @@ class J9ROMThrowException(object):
         return J9ROMThrowException(stream.read_string_ref())
 
 
-class J9ROMMethod(object):
+class J9ROMMethod:
     def __init__(
         self,
         name,
@@ -78,7 +78,6 @@ class J9ROMMethod(object):
         catch_exceptions,
         throw_exceptions,
     ):
-        super(J9ROMMethod, self).__init__()
         self.name = name
         self.signature = signature
         self.modifier = modifier
@@ -113,10 +112,7 @@ class J9ROMMethod(object):
             if modifier & 0x2000000:
                 stream.read_u32()
             if modifier & 0x20000:
-                a = stream.read_u16()
-                b = stream.read_u16()
-                c = a * 16 + 4 * b
-                stream.read_bytes(c)
+                stream.read_bytes(stream.read_u16() * 16 + 4 * stream.read_u16())
             caught_exceptions = []
             thrown_exceptions = []
             bytecode = stream.read_bytes(0)
@@ -165,9 +161,8 @@ class J9ROMMethod(object):
         )
 
 
-class J9ROMInterface(object):
+class J9ROMInterface:
     def __init__(self, name):
-        super(J9ROMInterface, self).__init__()
         self.name = name
 
     @staticmethod
@@ -176,53 +171,54 @@ class J9ROMInterface(object):
         return J9ROMInterface(name)
 
 
-class J9ROMConstant(object):
-    def __init__(self, type, value=None, _class=None, name=None, descriptor=None):
-        super(J9ROMConstant, self).__init__()
-        self.type = type
-        if type in (ConstType.INT, ConstType.STRING, ConstType.LONG):
-            self.value = value
-        elif type == ConstType.CLASS:
-            self.value = value
-        elif type == ConstType.REF:
-            self._class = _class
-            self.name = name
-            self.descriptor = descriptor
+class J9ROMConstant:
+    def __init__(self, cons_type, value=None, _class=None, name=None, descriptor=None):
+        self.type = cons_type
+        match cons_type:
+            case ConstType.INT | ConstType.STRING | ConstType.LONG:
+                self.value = value
+            case ConstType.CLASS:
+                self.value = value
+            case ConstType.REF:
+                self._class = _class
+                self.name = name
+                self.descriptor = descriptor
 
     @staticmethod
     def read(stream, base):
         pos = stream.get()
         value = stream.read_u32()
-        type = stream.read_u32()
+        value_type = stream.read_u32()
 
-        if type in (1, 2):
-            value = struct.unpack("<i", struct.pack("<I", value))[0]
-            ptr = pos + value
-            with StreamCursor(stream, ptr):
-                value = stream.read_string()
-        elif type == 0:
-            value = struct.pack("<I", value)
-        else:
-            class_ptr = base + 8 * value
-            try:
-                with StreamCursor(stream, class_ptr):
-                    _class = stream.read_string_ref()
-                ptr = type + pos + 4
+        match value_type:
+            case ConstType.STRING | ConstType.CLASS:
+                value = struct.unpack("<i", struct.pack("<I", value))[0]
+                ptr = pos + value
                 with StreamCursor(stream, ptr):
-                    name = stream.read_string_ref()
-                    descriptor = stream.read_string_ref()
-                return J9ROMConstant(
-                    ConstType.REF, _class=_class, name=name, descriptor=descriptor
-                )
-            except Exception as exc:
-                value = struct.pack("<II", value, type)
-                type = 3
-                print(exc)
+                    value = stream.read_string()
+            case ConstType.INT:
+                value = struct.pack("<I", value)
+            case _:
+                class_ptr = base + 8 * value
+                try:
+                    with StreamCursor(stream, class_ptr):
+                        _class = stream.read_string_ref()
+                    ptr = value_type + pos + 4
+                    with StreamCursor(stream, ptr):
+                        name = stream.read_string_ref()
+                        descriptor = stream.read_string_ref()
+                    return J9ROMConstant(
+                        ConstType.REF, _class=_class, name=name, descriptor=descriptor
+                    )
+                except Exception as exc:
+                    value = struct.pack("<II", value, value_type)
+                    value_type = 3
+                    print(exc)
 
-        return J9ROMConstant(type, value=value)
+        return J9ROMConstant(value_type, value=value)
 
 
-class J9ROMClass(object):
+class J9ROMClass:
     def __init__(
         self,
         minor,
@@ -235,7 +231,6 @@ class J9ROMClass(object):
         fields,
         constant_pool,
     ):
-        super(J9ROMClass, self).__init__()
         self.minor = minor
         self.major = major
         self.class_name = class_name
@@ -286,7 +281,7 @@ class J9ROMClass(object):
             minor = stream.read_u16()
             optional_flags = stream.read_u32()
             optional_info_pointer = stream.read_relative()
-            if not (optional_flags & 0x2000):
+            if not optional_flags & 0x2000:
                 with StreamCursor(stream, optional_info_pointer):
                     pass
                     # source_filename = stream.read_sprr(optional_flags, 0x1)
@@ -320,9 +315,8 @@ class J9ROMClass(object):
         )
 
 
-class J9ROMImage(object):
+class J9ROMImage:
     def __init__(self, signature, flags_and_version, rom_size, symbol_file_id, classes):
-        super(J9ROMImage, self).__init__()
         self.signature = signature
         self.flags_and_version = flags_and_version
         self.rom_size = rom_size
@@ -349,15 +343,14 @@ class J9ROMImage(object):
         )
 
 
-class JXE(object):
+class JXE:
     def __init__(self, image):
-        super(JXE, self).__init__()
         self.image = image
 
     @staticmethod
     def read(stream):
-        zipfile = ZipFile(stream.file_object)
-        rom = zipfile.open("rom.classes")
-        rom_stream = ReaderStream.bytes_to_stream(rom.read())
-        image = J9ROMImage.read(rom_stream)
-        return JXE(image)
+        with ZipFile(stream.file_object) as fp_zipfile:
+            with fp_zipfile.open("rom.classes") as rom:
+                rom_stream = ReaderStream.bytes_to_stream(rom.read())
+                image = J9ROMImage.read(rom_stream)
+                return JXE(image)

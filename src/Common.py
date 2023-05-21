@@ -1,3 +1,5 @@
+"""JXE2JAR common class."""
+# pylint: disable=W0212:
 import errno
 import os
 import os.path
@@ -6,7 +8,9 @@ from io import IOBase
 import bitstring
 
 
-class StreamCursor(object):
+class StreamCursor:
+    """StreamCursor object."""
+
     def __init__(self, stream, pos):
         self._stream_ = stream
         self._new_pos_ = pos
@@ -22,7 +26,9 @@ class StreamCursor(object):
         self._stream_.set(self._old_pos_)
 
 
-class ReaderStream(object):
+class ReaderStream:
+    """ReaderStream class."""
+
     def __init__(self, obj):
         if isinstance(obj, IOBase):
             self._file_object_ = obj
@@ -90,11 +96,13 @@ class ReaderStream(object):
         return self._file_object_
 
     @staticmethod
-    def bytes_to_stream(bytes):
-        return ReaderStream(bitstring.BitArray(bytes=bytes))
+    def bytes_to_stream(value):
+        return ReaderStream(bitstring.BitArray(bytes=value))
 
 
-class WriterStream(object):
+class WriterStream:
+    """WriteStream class using bitstring."""
+
     def __init__(self, file_object):
         self._file_object_ = file_object
         self._bit_stream_ = bitstring.BitStream()

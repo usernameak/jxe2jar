@@ -1,3 +1,5 @@
+"""Converts JXE to JAR file."""
+# pylint: disable=C0103
 import io
 import sys
 import zipfile
@@ -7,17 +9,18 @@ from ConstPool import CONST, ConstPool
 from JXE import JXE, ReaderStream, WriterStream
 
 
-def dump_romclass(stream, romclass):
+def dump_romclass(stream, romclass):  # pylint: disable=R0914, R0915
+    """Dumps romclass."""
     stream.write_raw_bytes(b"\xca\xfe\xba\xbe")
     stream.write_u16(romclass.minor)
     stream.write_u16(romclass.major)
-    cp = ConstPool(romclass)
-    class_name_id = cp.add(CONST.Class, romclass.class_name)
-    superclass_name_id = cp.add(CONST.Class, romclass.superclass_name)
+    const_pool = ConstPool(romclass)
+    class_name_id = const_pool.add(CONST.CLASS, romclass.class_name)
+    superclass_name_id = const_pool.add(CONST.CLASS, romclass.superclass_name)
     interface_id_list = []
 
     for interface in romclass.interfaces:
-        interface_id_list.append(cp.add(CONST.Class, interface.name))
+        interface_id_list.append(const_pool.add(CONST.CLASS, interface.name))
 
     field_info_list = []
 
@@ -25,23 +28,23 @@ def dump_romclass(stream, romclass):
         field_info_list.append(
             {
                 "access_flags": field.access_flag,
-                "name_index": cp.add(CONST.Utf8, field.name),
-                "descriptor_index": cp.add(CONST.Utf8, field.signature),
+                "name_index": const_pool.add(CONST.UTF8, field.name),
+                "descriptor_index": const_pool.add(CONST.UTF8, field.signature),
                 "attributes_count": 0,
                 "attributes": [],
             }
         )
 
-    code_attr_name_index = cp.add(CONST.Utf8, "Code")
+    code_attr_name_index = const_pool.add(CONST.UTF8, "Code")
     method_info_list = []
 
     for method in romclass.methods:
-        bytecode = transform_bytecode(bytearray(method.bytecode), cp)
+        bytecode = transform_bytecode(bytearray(method.bytecode), const_pool)
         method_info_list.append(
             {
                 "access_flags": method.modifier,
-                "name_index": cp.add(CONST.Utf8, method.name),
-                "descriptor_index": cp.add(CONST.Utf8, method.signature),
+                "name_index": const_pool.add(CONST.UTF8, method.name),
+                "descriptor_index": const_pool.add(CONST.UTF8, method.signature),
                 "attributes_count": 1,
                 "attributes": [
                     {
@@ -72,7 +75,7 @@ def dump_romclass(stream, romclass):
             }
         )
 
-    cp.write(stream)
+    const_pool.write(stream)
 
     stream.write_u16(romclass.access_flags & 0xFFFF)
     stream.write_u16(class_name_id)
@@ -125,23 +128,24 @@ def dump_romclass(stream, romclass):
 
 
 def create_class(romclass, jarfile):
-    class_name = romclass.class_name  # .replace('/', '.')
+    """Creates class"""
+    class_name = romclass.class_name
     class_file = f"{class_name}.class"
-    f = io.BytesIO()
-    stream = WriterStream(f)
+    f_stream = io.BytesIO()
+    stream = WriterStream(f_stream)
     dump_romclass(stream, romclass)
     stream.write()
-    jarfile.writestr(class_file, f.getvalue())
+    jarfile.writestr(class_file, f_stream.getvalue())
 
 
-def create_jar(jar_name, jxe, decompilation_check=True):
-    jarfile = zipfile.ZipFile(jar_name, "w")
-    for romclass in jxe.image.classes:
-        print("Creating class", romclass.class_name)
-        try:
-            create_class(romclass, jarfile)
-        except Exception as exc:
-            print("bad class, skip", romclass.class_name, ": ", exc)
+def _create_jar(jar_name, jxe):
+    with zipfile.ZipFile(jar_name, "w") as jar_zipfile:
+        for romclass in jxe.image.classes:
+            print("Creating class", romclass.class_name)
+            try:
+                create_class(romclass, jar_zipfile)
+            except Exception as exc:  # pylint: disable=W0718
+                print("bad class, skip", romclass.class_name, ": ", exc)
 
 
 def _main():
@@ -150,7 +154,7 @@ def _main():
     with open(jxe_name, "rb") as fp_jar:
         stream = ReaderStream(fp_jar)
         jxe = JXE.read(stream)
-        create_jar(jar_name, jxe)
+        _create_jar(jar_name, jxe)
 
 
 if __name__ == "__main__":
