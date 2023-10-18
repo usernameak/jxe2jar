@@ -40,7 +40,7 @@ def dump_romclass(
     code_attr_name_index = const_pool.add(CONST.UTF8, "Code")
 
     for method in romclass.methods:
-        bytecode = transform_bytecode(bytearray(method.bytecode), const_pool)
+        bytecode = transform_bytecode(bytearray(method.bytecode), method.signature, const_pool)
         method_info_list.append(
             {
                 "access_flags": method.modifier,

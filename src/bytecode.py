@@ -1,6 +1,8 @@
 """Java bytecode."""
 import struct
 from enum import Enum
+from bitstring import BitArray
+from constpool import CONST
 
 
 class JBOpcode(int, Enum):
@@ -233,7 +235,7 @@ class JBOpcode(int, Enum):
     JBimpdep2 = 0xFF
 
 
-def transform_bytecode(bytecode, cp):
+def transform_bytecode(bytecode, signature, cp):
     """Transforms bytecode"""
     i = 0
     new_cp_transform = {}
@@ -271,19 +273,20 @@ def transform_bytecode(bytecode, cp):
             i += 3
         elif opcode in (JBOpcode.JBldc2lw,):
             index = struct.unpack("<H", bytecode[i + 1 : i + 3])[0]
+            new_bytecode.append(JBOpcode.JBldc2lw)
             if cp.check_transform(index, b"\x06"):
-                new_bytecode.append(JBOpcode.JBldc2lw)
                 transform = cp.get_transform(index)
                 new_index = transform["new_index"]
                 tmp = struct.pack(">H", new_index + 1)
                 new_cp_transform[new_index] = b"\x05"
                 new_bytecode += tmp
             else:
-                new_bytecode.append(JBOpcode.JBldcw)
-                if cp.check_transform(index):
+                if cp.check_transform(index, b"\x03"):
                     transform = cp.get_transform(index)
                     new_index = transform["new_index"]
+                    new_index = cp.add(CONST.LONG, (0, cp.get_int(new_index))) - 1
                 else:
+                    print("WARNING: ldc2_w fallback")
                     # TODO: very dirty hack, because we incorrectly
                     # parse constant pool used in 1 case
                     new_index = 0
@@ -353,15 +356,19 @@ def transform_bytecode(bytecode, cp):
         elif opcode in (JBOpcode.JBaload0getfield,):
             new_bytecode.append(JBOpcode.JBaload0)
             i += 1
-        elif opcode in (JBOpcode.JBreturn0, JBOpcode.JBsyncReturn0):
+        elif opcode in (JBOpcode.JBreturn0, JBOpcode.JBsyncReturn0, JBOpcode.JBreturnFromConstructor):
             # JBreturn0 -> return (0xb1)
             # Used only if function return void
             new_bytecode.append(0xB1)
             i += 1
         elif opcode in (JBOpcode.JBreturn1, JBOpcode.JBsyncReturn1):
-            # JBreturn1 -> areturn (0xb0)
+            # JBreturn1 -> areturn/ireturn (0xb0)
             # Used only after push on stack
-            new_bytecode.append(0xB0)
+            if signature.endswith(")B") or signature.endswith(")Z") or signature.endswith(")S") or \
+                signature.endswith(")C") or signature.endswith(")I"):
+                new_bytecode.append(0xAC)
+            else:
+                new_bytecode.append(0xB0)
             i += 1
         elif opcode in (JBOpcode.JBinvokeinterface2,):
             # JBinvokeinterface2 -> invokeinterface

@@ -7,6 +7,7 @@ from zipfile import ZipFile
 
 from bitstring import BitArray
 from common import ReaderStream, StreamCursor, WriterStream  # noqa: F401
+# from bytecode import estimate_bc_size
 
 
 class ConstType(int, Enum):
@@ -32,6 +33,7 @@ class J9ROMField:
         """Returns J9 Field from stream."""
         name = stream.read_string_ref()
         signature = stream.read_string_ref()
+        # print(name + signature)
         access_flags = stream.read_u32()
 
         if access_flags & 0x400000:
@@ -106,11 +108,13 @@ class J9ROMMethod:
         """Returns J9 Method."""
         name = stream.read_string_ref()
         signature = stream.read_string_ref()
+        # print(name + signature)
         modifier = stream.read_u32()
         use_bytecodesize_high = modifier & 0x00008000
-        add_four1 = modifier & 0x02000000
+        # add_four1 = modifier & 0x02000000
         has_bytecode_extra = modifier & 0x00020000
-        add_four2 = modifier & 0x00400000
+        # add_four2 = modifier & 0x00400000
+        add_four1 = modifier & 0x00010000
         max_stack = stream.read_u16()
         if modifier & 0x100:
             base = stream.get()  # noqa: F841
@@ -140,10 +144,11 @@ class J9ROMMethod:
             bytecode_size = bytecode_size_low
             if use_bytecodesize_high:
                 bytecode_size += bytecode_size_high << 16
-            bytecode_size *= 4
-            if add_four1:
-                bytecode_size += 4
+            # print("bc size %d" % bytecode_size)
+            # print("argcnt %d" % arg_count)
+            # print("bc size est %d" % estimate_bc_size(stream, bytecode_size_low - 6))
             bytecode = stream.read_bytes(bytecode_size)
+            stream.set((stream.get() + 3) & ~3)
             if has_bytecode_extra:
                 caught_exception_count = stream.read_u16()
                 thrown_exception_count = stream.read_u16()
@@ -159,8 +164,8 @@ class J9ROMMethod:
                 caught_exceptions = []
                 thrown_exceptions = []
 
-            if add_four2:
-                stream.read_u32()
+            # if add_four2:
+            # stream.read_u32()
 
         return J9ROMMethod(
             name,
@@ -273,6 +278,7 @@ class J9ROMClass:
             rom_size = stream.read_u32()  # noqa: F841
             single_scalar_static_count = stream.read_u32()  # noqa: F841
             class_name = stream.read_string_ref()
+            print(class_name)
             superclass_name = stream.read_string_ref()
             access_flags = stream.read_u32()
             interface_count = stream.read_u32()

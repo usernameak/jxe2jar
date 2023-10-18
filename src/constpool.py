@@ -35,8 +35,9 @@ class ConstPool:
         for i, constant in enumerate(romclass.constant_pool):
             if constant.type == J9CONST.INT:
                 index = len(self.pool)
-                self.pool.append([CONST.INTEGER, constant.value])
+                self.pool.append([CONST.INTEGER, constant.value[::-1]])
                 self.transform[i] = {"new_index": index, "type": CONST.INTEGER}
+                print("idx %d = %s" % (index, constant.value))
             elif constant.type == J9CONST.LONG:
                 index = len(self.pool)
                 self.pool.append([CONST.DOUBLE, constant.value[::-1]])
@@ -127,14 +128,24 @@ class ConstPool:
             self.pool.append([CONST.UTF8, struct.pack(">H", len(value)) + value])
             return index + 1
 
+        if value_type == CONST.LONG:
+            index = len(self.pool)
+            self.pool.append([CONST.LONG, struct.pack(">II", *value)])
+            self.pool.append([-1, None])
+            return index + 1
+
         raise ValueError(f"Unexpected value type: '{value_type}'")
 
     def apply_transform(self, index, transform_type):
         self.pool[index][0] = transform_type
 
+    def get_int(self, index):
+        return struct.unpack(">I", self.pool[index][1])[0]
+
     def check_transform(self, index, transform_type=None):
+        # print(self.transform[index]["type"])
         return index in self.transform and (
-            transform_type and self.transform[index]["type"] == b"\x06"
+            not transform_type or self.transform[index]["type"] == transform_type
         )
 
     def get_transform(self, index):

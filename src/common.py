@@ -90,6 +90,7 @@ class ReaderStream:
         ptr = self.read_relative()
         pos = self.get()
         self.set(ptr)
+        # print('%d %d' % (pos, ptr))
         value = self.read_string()
         self.set(pos)
         return value
