@@ -106,9 +106,11 @@ class J9ROMMethod:
     @staticmethod
     def read(stream: BitArray):
         """Returns J9 Method."""
+        # print(stream.get())
         name = stream.read_string_ref()
+        # print('name: ' + name)
         signature = stream.read_string_ref()
-        # print(name + signature)
+        # print('sig: ' + signature)
         modifier = stream.read_u32()
         use_bytecodesize_high = modifier & 0x00008000
         # add_four1 = modifier & 0x02000000
@@ -118,15 +120,21 @@ class J9ROMMethod:
         max_stack = stream.read_u16()
         if modifier & 0x100:
             base = stream.get()  # noqa: F841
-            arg_count = stream.read_u8()
+            native_arg_count = stream.read_u8()  # noqa: F841
             temp_count = stream.read_u8()
             stream.read_u8()  # noqa: F841
-            native_arg_count = stream.read_u8()  # noqa: F841
-            return_type = stream.read_u8()  # noqa: F841
+            arg_count2 = stream.read_u8()
             stream.read_u8()
+            stream.read_u8()
+            arg_count = stream.read_u8()
+            return_type = stream.read_u8()  # noqa: F841
             args = []
             for i in range(arg_count):
-                args.append(stream.read_u32())
+                args.append(stream.read_u8())
+                
+            # align
+            stream.set((stream.get() + 3) & ~3)
+            # stream.read_u32()
             if modifier & 0x2000000:
                 stream.read_u32()
             if modifier & 0x20000:
@@ -135,6 +143,7 @@ class J9ROMMethod:
             thrown_exceptions = []
             bytecode = stream.read_bytes(0)
             print("Native method", stream.get(), hex(modifier), arg_count, name)
+            
 
         else:
             bytecode_size_low = stream.read_u16()
