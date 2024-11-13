@@ -362,13 +362,25 @@ def transform_bytecode(bytecode, signature, cp):
             new_bytecode.append(0xB1)
             i += 1
         elif opcode in (JBOpcode.JBreturn1, JBOpcode.JBsyncReturn1):
-            # JBreturn1 -> areturn/ireturn (0xb0)
+            # JBreturn1 -> areturn/ireturn/freturn (0xb0)
             # Used only after push on stack
             if signature.endswith(")B") or signature.endswith(")Z") or signature.endswith(")S") or \
                 signature.endswith(")C") or signature.endswith(")I"):
                 new_bytecode.append(0xAC)
+            elif signature.endswith(")F"):
+                new_bytecode.append(0xAE)
             else:
                 new_bytecode.append(0xB0)
+            i += 1
+        elif opcode in (JBOpcode.JBreturn2, JBOpcode.JBsyncReturn2):
+            # JBreturn2 -> lreturn/dreturn
+            # Used only after push on stack
+            if signature.endswith(")J"):
+                new_bytecode.append(0xAD)
+            elif signature.endswith(")D"):
+                new_bytecode.append(0xAF)
+            else:
+                new_bytecode.append(0xAD)
             i += 1
         elif opcode in (JBOpcode.JBinvokeinterface2,):
             # JBinvokeinterface2 -> invokeinterface
